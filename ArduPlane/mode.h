@@ -70,6 +70,7 @@ public:
 #if MODE_AUTOLAND_ENABLED
         AUTOLAND      = 26,
 #endif
+        ERTL          = 27
 
     // Mode number 30 reserved for "offboard" for external/lua control.
     };
@@ -1087,3 +1088,21 @@ protected:
 };
 
 #endif
+
+class ModeERTL : public Mode
+{
+public:
+    Number mode_number() const override { return Number::ERTL; }
+
+    const char *name() const override { return "ERTL"; }
+    const char *name4() const override { return "ERTL"; }
+
+    void update() override;
+    void navigate() override;
+
+    bool does_auto_navigation() const override { return true; }
+    bool does_auto_throttle() const override { return true; }
+
+protected:
+    bool _enter() override;
+};

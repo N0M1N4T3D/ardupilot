@@ -53,6 +53,7 @@ uint8_t GCS_MAVLINK_Plane::base_mode() const
         break;
     case Mode::Number::AUTO:
     case Mode::Number::RTL:
+    case Mode::Number::ERTL:
     case Mode::Number::LOITER:
     case Mode::Number::THERMAL:
     case Mode::Number::AVOID_ADSB:
@@ -1309,6 +1310,7 @@ uint8_t GCS_MAVLINK_Plane::send_available_mode(uint8_t index) const
 #if MODE_AUTOLAND_ENABLED
         &plane.mode_autoland,
 #endif
+        &plane.mode_ertl
     };
 
     const uint8_t fw_mode_count = ARRAY_SIZE(fw_modes);

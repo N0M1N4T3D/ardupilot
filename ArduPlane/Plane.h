@@ -191,6 +191,7 @@ public:
 #if AP_PLANE_SYSTEMID_ENABLED
     friend class AP_SystemID;
 #endif
+    friend class ModeERTL;
 
     Plane(void);
 
@@ -344,6 +345,7 @@ private:
 #if AP_QUICKTUNE_ENABLED
     AP_Quicktune quicktune;
 #endif
+    ModeERTL mode_ertl;
     
     // This is the state of the flight control system
     // There are multiple states defined such as MANUAL, FBW-A, AUTO
