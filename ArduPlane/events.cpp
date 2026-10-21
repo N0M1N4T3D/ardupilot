@@ -111,6 +111,7 @@ void Plane::rc_failsafe_short_on_event()
 
 void Plane::failsafe_long_on_event(enum failsafe_state fstype, ModeReason reason)
 {
+    const bool start_ertl = reason == ModeReason::GCS_FAILSAFE && g.fs_timeout_long.get() > 0 && g.fs_action_long == 10;
 
     if (reason == ModeReason::GCS_FAILSAFE) {
         AP_Notify::flags.failsafe_gcs = true;
@@ -145,7 +146,12 @@ void Plane::failsafe_long_on_event(enum failsafe_state fstype, ModeReason reason
             IGNORE_RETURN(set_mode(mode_fbwa, reason)); // emergency landing switch overrides normal action to allow out of range landing
             break;
         }
-        if(g.fs_action_long == FS_ACTION_LONG_PARACHUTE) {
+
+        
+        if (start_ertl) {
+            IGNORE_RETURN(set_mode(mode_ertl, reason));
+        }
+        else if(g.fs_action_long == FS_ACTION_LONG_PARACHUTE) {
 #if HAL_PARACHUTE_ENABLED
             parachute_release();
 #endif
@@ -200,7 +206,10 @@ void Plane::failsafe_long_on_event(enum failsafe_state fstype, ModeReason reason
     case Mode::Number::AVOID_ADSB:
     case Mode::Number::GUIDED:
 
-        if(g.fs_action_long == FS_ACTION_LONG_PARACHUTE) {
+        if (start_ertl) {
+            IGNORE_RETURN(set_mode(mode_ertl, reason));
+        }
+        else if(g.fs_action_long == FS_ACTION_LONG_PARACHUTE) {
 #if HAL_PARACHUTE_ENABLED
             parachute_release();
 #endif

@@ -372,6 +372,11 @@ public:
         k_param__gcs,
         k_param_custom_control,
 
+        //ertl
+        k_param_fs_gcs_wp = 275,
+        k_param_fs_gcs_cour,
+        k_param_fs_gcs_rt,
+        k_param_fs_gcs_lt,
     };
 
     AP_Int16 format_version;
@@ -417,6 +422,12 @@ public:
     AP_Int8 fs_action_long;
     AP_Float fs_timeout_long;
     AP_Int8 gcs_heartbeat_fs_enabled;
+
+    // ERTL
+    AP_Int16 fs_gcs_wp;
+    AP_Int16 fs_gcs_cour;
+    AP_Int32 fs_gcs_rt;
+    AP_Int32 fs_gcs_lt;
 
     // Flight modes
     //
