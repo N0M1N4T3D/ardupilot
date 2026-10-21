@@ -31,7 +31,6 @@ void Plane::rc_failsafe_short_on_event()
     case Mode::Number::FLY_BY_WIRE_A:
     case Mode::Number::AUTOTUNE:
     case Mode::Number::FLY_BY_WIRE_B:
-    case Mode::Number::ERTL:
     case Mode::Number::CRUISE:
     case Mode::Number::TRAINING:  
         if(plane.emergency_landing) {
@@ -92,6 +91,7 @@ void Plane::rc_failsafe_short_on_event()
         }
          break;
     case Mode::Number::CIRCLE:  // these modes never take any short failsafe action and continue
+    case Mode::Number::ERTL:
     case Mode::Number::TAKEOFF:
     case Mode::Number::RTL:
 #if HAL_QUADPLANE_ENABLED

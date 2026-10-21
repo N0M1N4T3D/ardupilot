@@ -287,6 +287,12 @@ bool AP_Arming_Plane::arm(const AP_Arming::Method method, const bool do_arming_c
         return false;
     }
 
+    if (plane.g.fs_gcs_cour.get() == -1) {
+        const float declination_deg = degrees(AP::compass().get_declination());
+        const float course_deg = wrap_360(plane.ahrs.yaw_sensor / 100.0f + 180.0f - declination_deg);
+        plane.g.fs_gcs_cour.set(int16_t(course_deg));
+    }
+
     if (plane.update_home()) {
         // after update_home the home position could still be
         // different from the current_loc if the EKF refused the

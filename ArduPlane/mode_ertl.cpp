@@ -136,7 +136,7 @@ void ModeERTL::navigate()
                     }
 
 
-                    if (rt_started && (AP_HAL::millis() - lt_start_ms) / 1000U >= static_cast<uint32_t>(fs_gcs_rt)) {
+                    if (rt_started && (AP_HAL::millis() - rt_start_ms) / 1000U >= static_cast<uint32_t>(fs_gcs_rt)) {
                         if (!rt_finished) {
                             plane.do_loiter_at_location();
                             plane.setup_terrain_target_alt(plane.next_WP_loc);
