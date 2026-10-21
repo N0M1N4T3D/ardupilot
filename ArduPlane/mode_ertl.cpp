@@ -9,6 +9,8 @@ bool ModeERTL::_enter()
     rt_finished = false;
     lt_start_ms = 0;
     rt_start_ms = 0;
+
+    //выставляем курс во время входа в ERTL
     enter_heading_course = plane.ahrs.yaw_sensor;
 
     const int16_t fs_gcs_wp = plane.g.fs_gcs_wp.get();
@@ -21,7 +23,7 @@ bool ModeERTL::_enter()
     const float target_alt_m = current_alt_m + (rtl_alt >= 0 ? rtl_alt : 0.0f);
 
 
-    if (fs_gcs_wp > 0 && fs_gcs_wp < plane.mission.num_commands()) {
+    if (fs_gcs_wp > 0 && fs_gcs_wp < plane.mission.num_commands()) { //если есть контрольная точка - летим к ней
         AP_Mission::Mission_Command cmd{};
 
         if (!plane.mission.read_cmd_from_storage(fs_gcs_wp, cmd) || cmd.id != MAV_CMD_NAV_WAYPOINT) {
@@ -33,7 +35,7 @@ bool ModeERTL::_enter()
             
         plane.set_next_WP(target);
     } 
-    else if (fs_gcs_wp == -1) {
+    else if (fs_gcs_wp == -1) { //если нет контрольной точки - первоначально инициализируем висение
         plane.do_loiter_at_location();
 
         plane.next_WP_loc.set_alt_m(target_alt_m, Location::AltFrame::ABSOLUTE);
@@ -59,102 +61,109 @@ void ModeERTL::navigate()
 {
     const int16_t fs_gcs_wp = plane.g.fs_gcs_wp.get();
 
-    if (fs_gcs_wp > 0) {
+    if (fs_gcs_wp > 0) { //летим к контрольной точке + продолжение миссии
         AP_Mission::Mission_Command cmd{};
+
         if (!plane.mission.read_cmd_from_storage(fs_gcs_wp, cmd) || cmd.id != MAV_CMD_NAV_WAYPOINT) {
             return;
         }
 
-        if (plane.verify_nav_wp(cmd)) {
-            const uint16_t next_wp = fs_gcs_wp + 1;
-
-            if (next_wp >= plane.mission.num_commands()) {
-                //последняя точка
-                return;
-            }
-
-            if (!plane.mission.set_current_cmd(next_wp)) {
-                return;
-            }
-
-            plane.mission.set_force_resume(true); //auto не может начать миссию с начала
-
-            if (!plane.set_mode(plane.mode_auto, ModeReason::GCS_FAILSAFE)) {
-                plane.mission.set_force_resume(false);
-            }
-        }
-    } 
-    else {
-        const int16_t radius = plane.g.rtl_radius.get();
-        const int32_t fs_gcs_lt = plane.g.fs_gcs_lt.get();
-
-        if (radius != 0) {
-            plane.loiter.direction = (radius < 0) ? -1 : 1;
-        }
-
-        if (rt_finished) {
-            plane.update_loiter(abs(radius));
+        if (!plane.verify_nav_wp(cmd)) { //не достигли точки
             return;
         }
 
+        const uint16_t next_wp = fs_gcs_wp + 1;
 
-        if (plane.loiter.reached_target_alt) {
-            if (!lt_started) {
-                lt_start_ms = AP_HAL::millis();
-                lt_started = true;
-            }
-
-            if (fs_gcs_lt <= 0 || (AP_HAL::millis() - lt_start_ms) / 1000U >= static_cast<uint32_t>(fs_gcs_lt)) {
-                const int32_t fs_gcs_rt = plane.g.fs_gcs_rt.get();
-                const int32_t fs_gcs_cour = plane.g.fs_gcs_cour.get();
-
-                if (fs_gcs_rt > 0) {
-                    if (fs_gcs_cour == -1) {
-                        const int32_t heading_cd = wrap_360_cd(int32_t((18000 + enter_heading_course)));
-                        plane.nav_controller->update_heading_hold(heading_cd);
-                    }
-                    else if (fs_gcs_cour >= 0 && fs_gcs_cour < 360) {
-                        const float declination_deg = degrees(AP::compass().get_declination());
-                        const int32_t heading_cd = wrap_360_cd(int32_t((fs_gcs_cour + declination_deg) * 100.0f));
-                        plane.nav_controller->update_heading_hold(heading_cd);
-                    }
-                    else {
-                        if (!rt_finished) {
-                            plane.do_loiter_at_location();
-                            plane.setup_terrain_target_alt(plane.next_WP_loc);
-                            plane.set_target_altitude_location(plane.next_WP_loc);
-                            plane.loiter_angle_reset();
-                            rt_finished = true;
-                        }
-                        plane.update_loiter(abs(radius));
-                        return;
-                    }
-
-                    if (!rt_started && abs(plane.nav_controller->bearing_error_cd()) <= 100) {
-                        rt_start_ms = AP_HAL::millis();
-                        rt_started = true;
-                    }
-
-
-                    if (rt_started && (AP_HAL::millis() - rt_start_ms) / 1000U >= static_cast<uint32_t>(fs_gcs_rt)) {
-                        if (!rt_finished) {
-                            plane.do_loiter_at_location();
-                            plane.setup_terrain_target_alt(plane.next_WP_loc);
-                            plane.set_target_altitude_location(plane.next_WP_loc);
-                            plane.loiter_angle_reset();
-                            rt_finished = true;
-                        }
-                        plane.update_loiter(abs(radius));
-                    }
-                }
-                else {
-                    plane.update_loiter(abs(radius));
-                }
-
-                return;
-            }
+        if (next_wp >= plane.mission.num_commands()) { //последняя точка
+            return;
         }
 
-        plane.update_loiter(abs(radius));
+        if (!plane.mission.set_current_cmd(next_wp)) {
+            return;
+        }
+
+        plane.mission.set_force_resume(true); //auto не может начать миссию с начала
+
+        if (!plane.set_mode(plane.mode_auto, ModeReason::GCS_FAILSAFE)) {
+            plane.mission.set_force_resume(false); 
+        }
+        return;
+    } 
+
+    //сценарий 2: fs_gcs_wp не задан
+    const int16_t radius = plane.g.rtl_radius.get();
+    const uint32_t now = AP_HAL::millis();
+
+    if (radius != 0) { //выбираем направление
+        plane.loiter.direction = (radius < 0) ? -1 : 1;
     }
+
+    // Финальное кружение или ожидание достижения высоты
+    if (rt_finished || !plane.loiter.reached_target_alt) { 
+        plane.update_loiter(abs(radius));
+        return;
+    }
+
+    if (!lt_started) {
+        lt_start_ms = now;
+        lt_started = true;
+    }
+
+    const int32_t fs_gcs_lt = plane.g.fs_gcs_lt.get();
+
+    if (fs_gcs_lt > 0 && (now - lt_start_ms) / 1000U < static_cast<uint32_t>(fs_gcs_lt)) {
+        plane.update_loiter(abs(radius));
+        return;
+    }
+
+    const int32_t fs_gcs_rt = plane.g.fs_gcs_rt.get();
+    if (fs_gcs_rt <= 0) {
+        plane.update_loiter(abs(radius));
+        return;
+    }
+
+    // Определяем требуемый курс
+    const int32_t fs_gcs_cour = plane.g.fs_gcs_cour.get();
+    int32_t heading_cd = 0;
+    bool valid_course = true;
+
+    if (fs_gcs_cour == -1) {
+        heading_cd = wrap_360_cd(18000 + enter_heading_course);
+    }
+    else if (fs_gcs_cour >= 0 && fs_gcs_cour < 360) {
+        const float declination_deg = degrees(AP::compass().get_declination());
+        heading_cd = wrap_360_cd(int32_t((fs_gcs_cour + declination_deg) * 100.0f));
+    }
+    else {
+        valid_course = false;
+    }
+
+
+    if (valid_course) {
+        plane.nav_controller->update_heading_hold(heading_cd);
+
+        // Начинаем отсчёт только после завершения разворота
+        if (!rt_started) {
+            if (abs(plane.nav_controller->bearing_error_cd()) > 100) {
+                return;
+            }
+
+            rt_start_ms = now;
+            rt_started = true;
+        }
+
+        // Полёт по курсу в течение FS_GCS_RT
+        if ((now - rt_start_ms) / 1000U < static_cast<uint32_t>(fs_gcs_rt)) {
+            return;
+        }
+    }
+ 
+    // бесконечное кружение в текущей точке
+    plane.do_loiter_at_location();
+    plane.setup_terrain_target_alt(plane.next_WP_loc);
+    plane.set_target_altitude_location(plane.next_WP_loc);
+    plane.loiter_angle_reset();
+
+    rt_finished = true;
+    plane.update_loiter(abs(radius));
 }
