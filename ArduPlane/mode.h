@@ -1105,4 +1105,13 @@ public:
 
 protected:
     bool _enter() override;
+
+    bool lt_started = false;
+    uint32_t lt_start_ms = 0;
+
+    bool rt_started = false;
+    uint32_t rt_start_ms = 0;
+    bool rt_finished = false;
+
+    float enter_heading_course = 0.f;
 };
